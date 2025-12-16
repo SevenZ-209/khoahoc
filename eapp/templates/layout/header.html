@@ -1,0 +1,109 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-bold" href="/">DOKLanguage</a>
+
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#collapsibleNavbar">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="collapsibleNavbar">
+
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        <li class="nav-item">
+          <a class="nav-link" href="/">Trang chủ</a>
+        </li>
+
+        {% if current_user.is_authenticated %}
+            {% if current_user.user_role.name == 'Thu_Ngan' %}
+            <li class="nav-item">
+                <a class="nav-link text-warning fw-bold" href="/cashier">Thu Ngân</a>
+            </li>
+            {% endif %}
+
+            {% if current_user.user_role.name == 'Giao_Vien' %}
+            <li class="nav-item">
+                <a class="nav-link text-info fw-bold" href="/teacher">Quản lý Điểm</a>
+            </li>
+            {% endif %}
+
+            {% if current_user.user_role.name == 'ADMIN' %}
+            <li class="nav-item">
+                <a class="nav-link text-danger fw-bold" href="/admin">Admin</a>
+            </li>
+            {% endif %}
+
+            {% if current_user.user_role.name == 'Quan_Ly' %}
+            <li class="nav-item">
+                <a class="nav-link text-danger fw-bold" href="/manager">
+                    Quản Lý
+                </a>
+            </li>
+            {% endif %}
+        {% endif %}
+
+        <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                Khóa học
+            </a>
+            <ul class="dropdown-menu">
+                {% for c in categories %}
+                <li>
+                    <a class="dropdown-item" href="/?category_id={{ c.id }}">{{ c.name }}</a>
+                </li>
+                {% endfor %}
+            </ul>
+        </li>
+
+        {% if current_user.is_authenticated %}
+            <li class="nav-item">
+                <a class="nav-link text-light" href="/my-courses">
+                    <i class="fas fa-book-open"></i> Khóa học của tôi
+                </a>
+            </li>
+        {% endif %}
+
+      </ul>
+
+      <form class="d-flex mx-3" method="get" action="/">
+            <input class="form-control me-2" type="text" placeholder="Tìm khóa học..." name="kw" value="{{ request.args.get('kw', '') }}">
+            <button class="btn btn-primary" type="submit">Tìm</button>
+      </form>
+
+      <ul class="navbar-nav mb-2 mb-lg-0">
+          {% if current_user.is_authenticated %}
+          <li class="nav-item d-flex align-items-center">
+            <a class="nav-link text-light d-flex align-items-center" href="#">
+                <img src="{{ current_user.avatar }}" class="rounded-circle me-2" width="30" height="30" style="object-fit: cover; border: 1px solid #fff;"/>
+
+                <span class="me-2">{{ current_user.name }}</span>
+
+                {% if current_user.user_role.name == 'ADMIN' %}
+                    <span class="badge bg-danger" >ADMIN</span>
+                {% elif current_user.user_role.name == 'Thu_Ngan' %}
+                    <span class="badge bg-warning text-dark" >THU NGÂN</span>
+                {% elif current_user.user_role.name == 'Giao_Vien' %}
+                    <span class="badge bg-info text-dark" >GIÁO VIÊN</span>
+                {% elif current_user.user_role.name == 'Quan_Ly' %}
+                    <span class="badge bg-danger text-dark" >QUẢN LÝ</span>
+                {% else %}
+                    <span class="badge bg-secondary" >HỌC VIÊN</span>
+
+                {% endif %}
+            </a>
+          </li>
+          <li class="nav-item ms-2">
+              <a class="btn btn-outline-danger btn-sm mt-1" href="/logout">Đăng xuất</a>
+          </li>
+          {% else %}
+          <li class="nav-item">
+              <a class="nav-link" href="/login">Đăng nhập</a>
+          </li>
+          <li class="nav-item">
+              <a class="nav-link text-warning" href="/register">Đăng ký</a>
+          </li>
+          {% endif %}
+      </ul>
+
+    </div>
+  </div>
+</nav>

@@ -1,0 +1,115 @@
+{% extends 'layout/base.html' %}
+
+{% block title %}Trang Quản Lý{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    
+    <div class="text-center mb-5">
+        <h2 class="text-uppercase fw-bold text-primary">
+            <i class="fas fa-user-tie"></i> Bảng Điều Khiển Quản Lý
+        </h2>
+        <p class="text-muted">Thay đổi các quy định và chính sách của trung tâm</p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card shadow border-0 h-100">
+                <div class="card-header bg-primary text-white fw-bold py-3">
+                    <i class="fas fa-money-bill-wave me-2"></i> CẬP NHẬT HỌC PHÍ
+                </div>
+                <div class="card-body bg-light">
+                    <form method="post" action="/manager">
+                        <input type="hidden" name="action" value="update_price">
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Chọn Môn học (Ngôn ngữ):</label>
+                            <select name="category_id" class="form-select">
+                                {% for c in categories %}
+                                    <option value="{{ c.id }}">{{ c.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Chọn Cấp độ (Level):</label>
+                            <select name="level" class="form-select">
+                                <option value="BEGINNER">BEGINNER (Cơ bản)</option>
+                                <option value="INTERMEDIATE">INTERMEDIATE (Trung cấp)</option>
+                                <option value="ADVANCED">ADVANCED (Nâng cao)</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Mức học phí mới (VNĐ):</label>
+                            <input type="number" name="price" class="form-control"
+                                   placeholder="Nhập giá tiền..." required min="0" step="1000">
+                        </div>
+
+                        <div class="alert alert-info py-2 small">
+                            <i class="fas fa-info-circle"></i> Giá sẽ áp dụng cho tất cả khóa học thỏa mãn: <b>Môn học + Cấp độ</b> đã chọn.
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100"
+                                onclick="return confirm('Bạn chắc chắn muốn đổi giá?')">
+                            <i class="fas fa-save"></i> Lưu Thay Đổi
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card shadow border-0 h-100">
+                <div class="card-header bg-danger text-white fw-bold py-3">
+                    <i class="fas fa-users-cog me-2"></i> QUY ĐỊNH SĨ SỐ LỚP
+                </div>
+                <div class="card-body bg-light">
+                    <form method="post" action="/manager">
+                        <input type="hidden" name="action" value="update_size">
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Chọn Lớp học:</label>
+                            <select name="class_id" class="form-select" required>
+                                <option value="" selected disabled>-- Chọn một lớp --</option>
+                                {% for c in classes %}
+                                    <option value="{{ c.id }}">
+                                        {{ c.name }} (Hiện tại: {{ c.max_students }} HV)
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Sĩ số tối đa mới:</label>
+                            <input type="number" name="max_students" class="form-control"
+                                   placeholder="Ví dụ: 30" required min="1">
+                        </div>
+
+                        <div class="alert alert-warning py-2 small">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Lưu ý: Nếu giảm sĩ số thấp hơn số người đã đăng ký, hệ thống sẽ báo lớp Đầy ngay lập tức.
+                        </div>
+
+                        <button type="submit" class="btn btn-danger w-100 mt-2"
+                                onclick="return confirm('Xác nhận thay đổi sĩ số cho lớp này?')">
+                            <i class="fas fa-check-circle"></i> Cập Nhật
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

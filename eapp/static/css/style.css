@@ -1,0 +1,16 @@
+
+.nav-item.dropdown:hover .dropdown-menu {
+display: block;
+margin-top: 0;
+}
+
+ .dropdown-menu .dropdown-item {
+    color: black;
+     cursor: pointer;
+ }
+
+.dropdown-menu .dropdown-item:hover {
+    background-color: #f0f0f0;
+    color: #0d6efd;
+}
+

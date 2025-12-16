@@ -1,0 +1,67 @@
+{% extends 'admin/master.html' %}
+
+{% block body %}
+<div class="container-fluid mt-4">
+    <h2 class="text-center text-primary">BÁO CÁO THỐNG KÊ</h2>
+    
+    <div class="row mt-4">
+        <div class="col-md-6 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header bg-success text-white">Doanh thu theo tháng (Năm {{ year }})</div>
+                <div class="card-body"><canvas id="revenueChart"></canvas></div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header bg-info text-white">Số lượng học viên theo khóa</div>
+                <div class="card-body"><canvas id="courseChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-12 mb-4">
+            <div class="card shadow">
+                <div class="card-header bg-warning text-dark">Tỷ lệ Đạt / Không Đạt</div>
+                <div class="card-body"><canvas id="passRateChart" height="100"></canvas></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script src="{{ url_for('static', filename='js/stats.js') }}"></script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+
+        // --- CHUẨN BỊ DỮ LIỆU ---
+
+        // Dữ liệu Doanh thu
+        let rLabels = [], rData = [];
+        {% for r in revenue_data %}
+            rLabels.push("Tháng {{ r[0] }}");
+            rData.push({{ r[1] }});
+        {% endfor %}
+
+        // Dữ liệu Học viên
+        let cLabels = [], cData = [];
+        {% for c in course_data %}
+            cLabels.push("{{ c[0] }}");
+            cData.push({{ c[1] }});
+        {% endfor %}
+
+        // Dữ liệu Tỷ lệ Đạt
+        let pLabels = [], pData = [], fData = [];
+        {% for name, stats in pass_rate_data.items() %}
+            pLabels.push("{{ name }}");
+            pData.push({{ stats['pass'] }});
+            fData.push({{ stats['fail'] }});
+        {% endfor %}
+
+        // --- GỌI HÀM TỪ FILE JS ĐỂ VẼ ---
+        renderCharts(rLabels, rData, cLabels, cData, pLabels, pData, fData);
+    });
+</script>
+{% endblock %}

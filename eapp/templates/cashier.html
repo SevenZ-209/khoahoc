@@ -1,0 +1,126 @@
+{% extends 'layout/base.html' %}
+
+{% block title %}Quản lý Thu Ngân{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0"> QUẦY THU NGÂN</h3>
+        </div>
+        <div class="card-body">
+            
+            <form action="/cashier" method="get" class="row g-3 mb-4">
+                <div class="col-md-10">
+                    <input type="text" class="form-control form-control-lg" name="kw" 
+                           placeholder="Nhập tên học viên hoặc tên đăng nhập..." 
+                           value="{{ request.args.get('kw', '') }}" required>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-warning btn-lg w-100">
+                         Tìm
+                    </button>
+                </div>
+            </form>
+
+            <hr>
+
+            {% if receipts %}
+                <div class="alert alert-info">
+                    Tìm thấy <strong>{{ receipts|length }}</strong> hóa đơn chưa thanh toán.
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Mã HĐ</th>
+                                <th>Học viên</th>
+                                <th>Thông tin lớp học</th>
+                                <th>Tổng tiền</th>
+                                <th>Ngày đăng ký</th>
+                                <th>Lịch học</th>
+                                <th>Tác vụ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in receipts %}
+                            <tr>
+                                <td>#{{ r.id }}</td>
+
+                                <td>
+                                    <div class="fw-bold">{{ r.user.name }}</div>
+                                </td>
+
+                                <td>
+                                    <ul class="list-unstyled mb-0">
+                                        {% for d in r.details %}
+                                        <li>
+                                            <i class="fas fa-book text-primary"></i> {{ d.my_class.name }}
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                </td>
+
+                                <td class="text-danger fw-bold">
+                                    {{ "{:,.0f}".format(r.total_amount) }} VNĐ
+                                </td>
+
+                                <td>
+                                    {{ r.created_date.strftime('%d/%m/%Y %H:%M') }}
+                                </td>
+
+                                <td>
+                                    <ul class="list-unstyled mb-0">
+                                        {% for d in r.details %}
+                                        <li class="mb-2 border-bottom pb-2">
+                                            <strong>{{ d.my_class.name }}</strong>
+                                            <br>
+                                            <small class="text-muted">{{ d.my_class.schedule }}</small>
+
+                                            {% set si_so = count_students(d.my_class.id) %}
+                                            {% if si_so >= d.my_class.max_students %}
+                                                <span class="badge bg-danger ms-1">FULL</span>
+                                            {% else %}
+                                                <span class="badge bg-info text-dark ms-1">{{ si_so }}/{{ d.my_class.max_students }}</span>
+                                            {% endif %}
+
+                                            <button class="btn btn-outline-danger btn-sm ms-2"
+                                                    onclick="deleteRegistration({{ d.id }})"
+                                                    title="Hủy đăng ký lớp này">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                </td>
+
+                                <td>
+                                    <button onclick="pay({{ r.id }})" class="btn btn-success text-nowrap">
+                                        <i class="fas fa-check-circle"></i> Thu tiền
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                {% if request.args.get('kw') %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-search-minus fa-3x text-muted mb-3"></i>
+                        <h4 class="text-muted">Không tìm thấy hóa đơn nợ nào cho từ khóa này.</h4>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5 text-muted">
+                        Vui lòng nhập tên học viên để tra cứu hóa đơn.
+                    </div>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/registration.js') }}"></script>
+<script src="{{ url_for('static', filename='js/cashier.js') }}"></script>
+{% endblock %}
