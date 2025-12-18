@@ -9,21 +9,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // 2. Xử lý khi tích vào ô Có/Vắng
     const radios = document.querySelectorAll('.attendance-radio');
     radios.forEach(radio => {
         radio.addEventListener('change', function() {
             const enrollmentId = this.dataset.enrollment;
-            const isPresent = (this.value === '1'); // 1=True, 0=False
+            const isPresent = (this.value === '1');
             const date = document.getElementById('attendanceDate').value;
-
-            // Gọi hàm lưu
             saveAttendance(enrollmentId, date, isPresent);
         });
     });
 });
 
-// Hàm gọi API
 function saveAttendance(enrollmentId, date, isPresent) {
     fetch('/api/attendance', {
         method: 'POST',
@@ -45,7 +41,6 @@ function saveAttendance(enrollmentId, date, isPresent) {
     .catch(err => console.error(err));
 }
 
-// Hàm hiện thông báo
 function showSuccessMessage() {
     const msg = document.getElementById('msg');
     if(msg) {

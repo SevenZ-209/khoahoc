@@ -1,5 +1,3 @@
-# eapp/admin.py
-
 import hashlib
 from datetime import datetime
 from flask import redirect, request, url_for
@@ -9,24 +7,18 @@ from flask_login import current_user, logout_user
 from eapp.models import Category, Course, UserRole, Class, User
 from eapp import db, app, dao
 
-
-# 1. BẢO VỆ TRANG CHỦ ADMIN (/admin)
 class MyAdminIndexView(AdminIndexView):
     @expose('/')
     def index(self):
         if not current_user.is_authenticated or current_user.user_role != UserRole.ADMIN:
-            return redirect('/')  # Đá về trang chủ nếu không phải Admin
+            return redirect('/')
         return super(MyAdminIndexView, self).index()
 
-
-# 2. CLASS CHA BẢO VỆ CÁC MODEL (Category, Course...)
 class AuthenticatedModelView(ModelView):
     def is_accessible(self):
         return current_user.is_authenticated and current_user.user_role == UserRole.ADMIN
 
-
-# 3. Kế thừa từ class đã bảo mật
-class CourseView(AuthenticatedModelView):  # <-- Sửa ModelView thành AuthenticatedModelView
+class CourseView(AuthenticatedModelView):
     column_list = ['id', 'name', 'price', 'level', 'category']
     column_searchable_list = ['name']
     column_filters = ['id', 'name', 'price']
@@ -34,8 +26,7 @@ class CourseView(AuthenticatedModelView):  # <-- Sửa ModelView thành Authenti
     edit_modal = True
     page_size = 30
 
-
-class UserView(AuthenticatedModelView):  # <-- Sửa AdminView thành AuthenticatedModelView
+class UserView(AuthenticatedModelView):
     column_list = ['id', 'name', 'username', 'email', 'user_role', 'active']
     form_columns = ['name', 'username', 'password', 'email', 'user_role', 'active']
 
@@ -43,30 +34,28 @@ class UserView(AuthenticatedModelView):  # <-- Sửa AdminView thành Authentica
         if form.password.data:
             model.password = str(hashlib.md5(form.password.data.encode('utf-8')).hexdigest())
 
-
-class ClassView(AuthenticatedModelView):  # <-- Sửa AdminView thành AuthenticatedModelView
-    column_list = ['name', 'course', 'teacher', 'schedule', 'room']
-    form_columns = ['name', 'course', 'teacher', 'schedule', 'room', 'start_date', 'max_students']
+class ClassView(AuthenticatedModelView):
+    column_list = ['name', 'course', 'teacher', 'schedule', 'room', 'active']
+    form_columns = ['name', 'course', 'teacher', 'schedule', 'room', 'start_date', 'max_students', 'active']
     column_labels = dict(name='Tên Lớp', course='Thuộc Khóa', teacher='Giáo Viên',
                          schedule='Lịch học', start_date='Khai giảng',
                          max_students='Sĩ số', room='Phòng')
 
-
 class StatsView(BaseView):
     @expose('/')
     def index(self):
-        # ... (Code thống kê giữ nguyên) ...
-        year = request.args.get('year', datetime.now().year)
-        revenue_data = dao.stats_revenue_by_month(year)
-        course_data = dao.stats_courses_enrollment()
-        pass_rate_data = dao.stats_pass_rate_by_course()  # <-- Dữ liệu tỷ lệ đạt
+        from_date = request.args.get('from_date')
+        to_date = request.args.get('to_date')
+        revenue_data = dao.stats_revenue_by_month(from_date=from_date, to_date=to_date)
+        course_data = dao.stats_courses_enrollment(from_date=from_date, to_date=to_date)
+        pass_rate_data = dao.stats_pass_rate_by_course(from_date=from_date, to_date=to_date)
 
         return self.render('admin/stats.html',
                            revenue_data=revenue_data,
                            course_data=course_data,
                            pass_rate_data=pass_rate_data,
-                           year=year)
-
+                           from_date=from_date,
+                           to_date=to_date)
     def is_accessible(self):
         return current_user.is_authenticated and current_user.user_role == UserRole.ADMIN
 
@@ -80,15 +69,11 @@ class LogoutView(BaseView):
     def is_accessible(self):
         return current_user.is_authenticated
 
-
-# 4. KHỞI TẠO ADMIN VỚI INDEX VIEW BẢO MẬT
 admin = Admin(app=app,
               name="DOK's Admin",
               template_mode='bootstrap4',
-              index_view=MyAdminIndexView())  # <-- Quan trọng: Chặn ngay cửa chính
+              index_view=MyAdminIndexView())
 
-# 5. THÊM VIEW (Tất cả đều phải dùng AuthenticatedModelView)
-# Category dùng trực tiếp AuthenticatedModelView thay vì ModelView gốc
 admin.add_view(AuthenticatedModelView(Category, db.session, name='Danh mục'))
 admin.add_view(CourseView(Course, db.session, name='Khóa học'))
 admin.add_view(ClassView(Class, db.session, name='Lớp học'))

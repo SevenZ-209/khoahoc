@@ -1,15 +1,13 @@
 function renderCharts(revenueLabels, revenueData, courseLabels, courseData, passLabels, passData, failData) {
-    
-    // 1. VẼ BIỂU ĐỒ DOANH THU
     const ctxRevenue = document.getElementById('revenueChart');
     if (ctxRevenue) {
         new Chart(ctxRevenue, {
             type: 'bar',
             data: {
-                labels: revenueLabels, // Nhận từ tham số
+                labels: revenueLabels,
                 datasets: [{
                     label: 'Doanh thu (VNĐ)',
-                    data: revenueData, // Nhận từ tham số
+                    data: revenueData,
                     backgroundColor: 'rgba(25, 135, 84, 0.6)',
                     borderColor: 'rgba(25, 135, 84, 1)',
                     borderWidth: 1
@@ -18,7 +16,6 @@ function renderCharts(revenueLabels, revenueData, courseLabels, courseData, pass
         });
     }
 
-    // 2. VẼ BIỂU ĐỒ SỐ LƯỢNG HỌC VIÊN
     const ctxCourse = document.getElementById('courseChart');
     if (ctxCourse) {
         new Chart(ctxCourse, {
@@ -33,7 +30,6 @@ function renderCharts(revenueLabels, revenueData, courseLabels, courseData, pass
         });
     }
 
-    // 3. VẼ BIỂU ĐỒ TỶ LỆ ĐẠT (PASS RATE)
     const ctxPass = document.getElementById('passRateChart');
     if (ctxPass) {
         new Chart(ctxPass, {

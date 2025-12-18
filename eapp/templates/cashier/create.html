@@ -1,0 +1,46 @@
+{% extends 'layout/base.html' %}
+
+{% block title %}Tạo Hóa Đơn Mới{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="text-center text-primary mb-4">ĐĂNG KÝ KHÓA HỌC TẠI QUẦY</h2>
+
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-body p-4">
+                    <form method="post" action="/cashier/create">
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Tên đăng nhập học viên:</label>
+                            <input type="text" name="username" class="form-control" 
+                                   placeholder="Nhập username..." required>
+                            <small class="text-muted">Nhập chính xác username của học viên đã có tài khoản.</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Chọn Lớp học:</label>
+                            <select name="class_id" class="form-select" required>
+                                <option value="" disabled selected>-- Chọn lớp --</option>
+                                {% for c in active_classes %}
+                                    <option value="{{ c.id }}">
+                                        {{ c.name }} ({{ c.course.name }}) - Giá: {{ "{:,.0f}".format(c.course.price) }} VNĐ
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-plus-circle"></i> Tạo Hóa Đơn
+                            </button>
+                            <a href="/cashier" class="btn btn-secondary">Quay lại</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

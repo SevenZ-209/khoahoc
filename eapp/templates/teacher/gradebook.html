@@ -24,19 +24,20 @@
             </thead>
 
             <tbody>
-                {% for s in students %}
-                {% set stat = calc_stats(s.id) %}
+                {% for s in students %} {% set stat = calc_stats(s.id) %}
                 <tr class="student-row">
                     <td class="text-center">{{ s.user.id }}</td>
                     <td>{{ s.user.name }}</td>
 
                     {% for type in ScoreType %}
                     <td>
-                        <input type="number" class="form-control text-center score-input"
-                               data-enrollment="{{ s.id }}"
-                               data-type="{{ type.value }}"
+                        <input type="number"
+                               class="form-control score-input"
                                value="{{ get_score(s, type) }}"
-                               min="0" max="10" step="0.1">
+                               min="0"
+                               max="10"
+                               step="0.1"
+                               onchange="updateScore(this, {{ s.id }}, {{ type.value }})">
                     </td>
                     {% endfor %}
 

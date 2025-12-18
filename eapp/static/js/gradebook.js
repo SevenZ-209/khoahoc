@@ -2,32 +2,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const inputs = document.querySelectorAll('.score-input');
 
     inputs.forEach(input => {
+        calculateRow(input.closest('tr'));
         input.addEventListener('input', function() {
-            calculateRow(this.closest('tr'));
-        });
-
-        input.addEventListener('change', function() {
-            const enrollmentId = this.dataset.enrollment;
-            const scoreType = this.dataset.type;
-            const value = this.value;
-
-            fetch('/api/update-score', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    enrollment_id: enrollmentId,
-                    score_type: scoreType,
-                    value: value
-                })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    showSuccess();
-                } else {
-                    alert('Lỗi lưu điểm!');
-                }
-            });
             calculateRow(this.closest('tr'));
         });
     });
@@ -35,7 +11,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function calculateRow(row) {
     const inputs = row.querySelectorAll('.score-input');
-
     let total = 0;
     let count = 0;
 
@@ -47,7 +22,6 @@ function calculateRow(row) {
     });
 
     count = inputs.length;
-
     let avg = 0;
     if (count > 0) {
         avg = total / count;
@@ -74,6 +48,35 @@ function showSuccess() {
     const msg = document.getElementById('msg');
     if(msg) {
         msg.style.display = 'block';
-        setTimeout(() => msg.style.display = 'none', 1000);
+        setTimeout(() => msg.style.display = 'none', 2000); // Hiện trong 2 giây
     }
+}
+
+function updateScore(inputElement, enrollmentId, scoreType) {
+    const value = inputElement.value;
+
+    fetch('/api/update-score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            'enrollment_id': enrollmentId,
+            'score_type': scoreType,
+            'value': value
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            console.log('Đã lưu thành công!');
+            inputElement.style.borderColor = "green";
+            calculateRow(inputElement.closest('tr'));
+            showSuccess();
+        } else {
+            alert(data.msg);
+            inputElement.style.borderColor = "red";
+        }
+    })
+    .catch(err => {
+        console.error(err);
+    });
 }

@@ -1,12 +1,9 @@
 import enum
 from datetime import datetime
-
 from sqlalchemy import Column, Integer, String, Boolean, Float, Enum, ForeignKey, DateTime
 from sqlalchemy.orm import relationship, backref
 from flask_login import UserMixin
-
 from eapp import db, app
-
 
 class UserRole(enum.Enum):
     ADMIN = 1
@@ -35,29 +32,6 @@ class BaseModel(db.Model):
     id= Column(Integer, primary_key=True, autoincrement=True)
     active= Column(Boolean, default=True)
 
-
-class Enrollment(BaseModel):
-    user_id = Column(Integer, ForeignKey('user.id'), nullable=False)
-    class_id = Column(Integer, ForeignKey('class.id'), nullable=False)
-    enrolled_date = Column(DateTime, default=datetime.now)
-
-    # Quan hệ: 1 Đăng ký có NHIỀU điểm số
-    scores = relationship('Score', backref='enrollment', lazy=True)
-    user = relationship('User', backref='enrollments', lazy=True)
-    my_class = relationship('Class', backref='enrollments', lazy=True)
-
-
-class Score(BaseModel):
-    value = Column(Float, nullable=False)  # Giá trị điểm (VD: 8.5)
-
-    # Lưu loại điểm là Enum
-    score_type = Column(Enum(ScoreType), nullable=False)
-
-    # Liên kết về bảng Enrollment
-    enrollment_id = Column(Integer, ForeignKey('enrollment.id'), nullable=False)
-
-    def __str__(self):
-        return f"{self.score_type.name}: {self.value}"
 
 class User(BaseModel, UserMixin):
     name = Column(String(50), nullable=False)
@@ -91,13 +65,12 @@ class Course(BaseModel):
         return self.name
 
 class Class(BaseModel):
-    name = Column(String(50), nullable=False) # Ví dụ: "Lớp KA01 - Sáng 2-4-6"
-    start_date = Column(DateTime) # Ngày khai giảng
-    schedule = Column(String(100)) # Lịch học: "T2-T4-T6 (18h-20h)"
-    room = Column(String(50)) # Phòng học
-    max_students = Column(Integer, default=25) # Sĩ số tối đa
+    name = Column(String(50), nullable=False)
+    start_date = Column(DateTime)
+    schedule = Column(String(100))
+    room = Column(String(50))
+    max_students = Column(Integer, default=25)
 
-    # Liên kết với Course (Một khóa có nhiều lớp)
     teacher_id = Column(Integer, ForeignKey('user.id'), nullable=True)
     teacher = relationship('User', backref='teaching_classes', lazy=True)
     course_id = Column(Integer, ForeignKey('course.id'), nullable=False)
@@ -106,12 +79,23 @@ class Class(BaseModel):
     def __str__(self):
         return self.name
 
-    # Hàm tiện ích để đếm học viên hiện tại (sẽ query từ ReceiptDetail)
-    # @property
-    # def current_students(self):
-    #     # Logic đếm số lượng receipt_detail có class_id này và receipt đó đã thanh toán
-    #     # (Bạn sẽ code logic này sau trong dao hoặc query trực tiếp)
-    #     return 0
+class Enrollment(BaseModel):
+    user_id = Column(Integer, ForeignKey('user.id'), nullable=False)
+    class_id = Column(Integer, ForeignKey('class.id'), nullable=False)
+    enrolled_date = Column(DateTime, default=datetime.now)
+
+    scores = relationship('Score', backref='enrollment', lazy=True)
+    user = relationship('User', backref='enrollments', lazy=True)
+    my_class = relationship('Class', backref='enrollments', lazy=True)
+
+
+class Score(BaseModel):
+    value = Column(Float, nullable=False)
+    score_type = Column(Enum(ScoreType), nullable=False)
+    enrollment_id = Column(Integer, ForeignKey('enrollment.id'), nullable=False)
+
+    def __str__(self):
+        return f"{self.score_type.name}: {self.value}"
 
 class Receipt(BaseModel):
     total_amount = Column(Float, default=0)
@@ -121,12 +105,22 @@ class Receipt(BaseModel):
     user_id = Column(Integer, ForeignKey('user.id'), nullable=False)
     cashier_id = Column(Integer, ForeignKey('user.id'), nullable=True)
 
-    # models.py
     user = relationship('User', foreign_keys=[user_id], backref='receipts', lazy=True)
     cashier = relationship('User', foreign_keys=[cashier_id], backref='cashier_receipts', lazy=True)
 
     def __str__(self):
         return f"HĐ: {self.code} - {self.total_amount}"
+
+
+class Attendance(BaseModel):
+    date = Column(DateTime, default=datetime.now)
+    present = Column(Boolean, default=True)
+
+    enrollment_id = Column(Integer, ForeignKey('enrollment.id'), nullable=False)
+    enrollment = relationship('Enrollment', backref='attendances', lazy=True)
+
+    def __str__(self):
+        return f"{self.date.strftime('%d/%m')}: {'Có' if self.present else 'Vắng'}"
 
 class ReceiptDetail(BaseModel):
     receipt_id = Column(Integer, ForeignKey('receipt.id'), nullable=False)
@@ -135,23 +129,6 @@ class ReceiptDetail(BaseModel):
 
     receipt = relationship('Receipt', backref='details', lazy=True)
     my_class = relationship('Class', backref='receipt_details', lazy=True)
-
-
-class Attendance(BaseModel):
-    # Ngày điểm danh (Mặc định là hôm nay)
-    date = Column(DateTime, default=datetime.now)
-
-    # Trạng thái: True = Có mặt, False = Vắng
-    present = Column(Boolean, default=True)
-
-    # Liên kết với Enrollment (Biết học viên nào, lớp nào)
-    enrollment_id = Column(Integer, ForeignKey('enrollment.id'), nullable=False)
-
-    # Relationship để truy cập từ enrollment.attendances
-    enrollment = relationship('Enrollment', backref='attendances', lazy=True)
-
-    def __str__(self):
-        return f"{self.date.strftime('%d/%m')}: {'Có' if self.present else 'Vắng'}"
 
 if __name__ == '__main__':
     with app.app_context():
@@ -194,7 +171,7 @@ if __name__ == '__main__':
                        username='gv1',
                        email='gv1@gmail.com',
                        password=str(hashlib.md5('123'.encode('utf-8')).hexdigest()),
-                       user_role=UserRole.Giao_Vien)  # Quan trọng: Role Giáo Viên
+                       user_role=UserRole.Giao_Vien)
 
         db.session.add(teacher1)
         db.session.commit()
@@ -322,13 +299,12 @@ if __name__ == '__main__':
                            start_date=datetime(2025, 12, 20),
                            course_id=course_ta.id,
                            teacher_id=teacher1.id,
-                           max_students=2)
+                           max_students=2
+                          )
 
             db.session.add_all([class1, class2])
             db.session.commit()
             if class2 and hv:
-                # Tạo biến mới tên là 'enrollment', KHÔNG dùng lại tên 'hv'
-                # Lấy class_id từ biến class1, KHÔNG lấy từ hv
                 enrollment = Enrollment(user_id=hv.id, class_id=class2.id)
 
                 db.session.add(enrollment)

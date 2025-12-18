@@ -3,6 +3,27 @@
 {% block body %}
 <div class="container-fluid mt-4">
     <h2 class="text-center text-primary">BÁO CÁO THỐNG KÊ</h2>
+
+    <div class="card mb-4 p-3 shadow-sm">
+        <form method="GET" class="row g-3 align-items-center justify-content-center">
+            <div class="col-auto">
+                <label class="fw-bold">Từ ngày:</label>
+                <input type="date" name="from_date" class="form-control" value="{{ request.args.get('from_date', '') }}">
+            </div>
+            <div class="col-auto">
+                <label class="fw-bold">Đến ngày:</label>
+                <input type="date" name="to_date" class="form-control" value="{{ request.args.get('to_date', '') }}">
+            </div>
+            <div class="col-auto">
+                <label>&nbsp;</label><br>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i> Lọc dữ liệu</button>
+            </div>
+            <div class="col-auto">
+                <label>&nbsp;</label><br>
+                <a href="/admin/statsview" class="btn btn-outline-secondary">Mặc định (Năm nay)</a>
+            </div>
+        </form>
+    </div>
     
     <div class="row mt-4">
         <div class="col-md-6 mb-4">
@@ -35,32 +56,22 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function() {
-
-        // --- CHUẨN BỊ DỮ LIỆU ---
-
-        // Dữ liệu Doanh thu
         let rLabels = [], rData = [];
         {% for r in revenue_data %}
             rLabels.push("Tháng {{ r[0] }}");
             rData.push({{ r[1] }});
         {% endfor %}
-
-        // Dữ liệu Học viên
         let cLabels = [], cData = [];
         {% for c in course_data %}
             cLabels.push("{{ c[0] }}");
             cData.push({{ c[1] }});
         {% endfor %}
-
-        // Dữ liệu Tỷ lệ Đạt
         let pLabels = [], pData = [], fData = [];
         {% for name, stats in pass_rate_data.items() %}
             pLabels.push("{{ name }}");
             pData.push({{ stats['pass'] }});
             fData.push({{ stats['fail'] }});
         {% endfor %}
-
-        // --- GỌI HÀM TỪ FILE JS ĐỂ VẼ ---
         renderCharts(rLabels, rData, cLabels, cData, pLabels, pData, fData);
     });
 </script>

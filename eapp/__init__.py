@@ -21,5 +21,3 @@ api_secret='9IM8MLY8s6Y4Pj6deAJZv6_FhJU')
 
 db = SQLAlchemy(app=app)
 login = LoginManager(app=app)
-
-# from eapp import models
