@@ -3,7 +3,8 @@ from datetime import datetime
 from sqlalchemy import func
 import cloudinary.uploader
 
-from eapp.models import Category, Course, User, db, Receipt, PaymentStatus, ReceiptDetail, Class, Enrollment, Score,    ScoreType, Attendance
+from eapp.models import Category, Course, User, db, Receipt, PaymentStatus, ReceiptDetail, Class, Enrollment, Score, \
+    ScoreType, Attendance, Result
 from eapp import app
 
 def load_categories():
@@ -177,10 +178,16 @@ def calculate_stats(enrollment_id):
 
     avg = round(avg, 2)
 
+    if avg >= 5.0:
+        final_result = Result.DAT
+    else:
+        final_result = Result.KHONG_DAT
+
     return {
         'avg': avg,
-        'result': "Đạt" if avg >= 5.0 else "Không đạt",
-        'is_passed': avg >= 5.0
+        'result_enum': final_result,
+        'result_text': "Đạt" if final_result == Result.DAT else "Không Đạt",
+        'is_passed': final_result == Result.DAT
     }
 
 def save_attendance(enrollment_id, date_str, is_present):

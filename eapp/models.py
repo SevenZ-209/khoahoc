@@ -27,6 +27,10 @@ class ScoreType(enum.Enum):
     CHUYEN_CAN = 3
     # KIEM_TRA_MIENG = 4
 
+class Result(enum.Enum):
+    DAT = 1
+    KHONG_DAT = 2
+
 class BaseModel(db.Model):
     __abstract__ = True
     id= Column(Integer, primary_key=True, autoincrement=True)

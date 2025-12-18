@@ -48,7 +48,7 @@ function showSuccess() {
     const msg = document.getElementById('msg');
     if(msg) {
         msg.style.display = 'block';
-        setTimeout(() => msg.style.display = 'none', 2000); // Hiện trong 2 giây
+        setTimeout(() => msg.style.display = 'none', 2000);
     }
 }
 
