@@ -4,7 +4,7 @@ from sqlalchemy import func
 import cloudinary.uploader
 
 from eapp.models import Category, Course, User, db, Receipt, PaymentStatus, ReceiptDetail, Class, Enrollment, Score, \
-    ScoreType, Attendance, Result
+    ScoreType, Attendance, Result, Level
 from eapp import app
 
 def load_categories():
@@ -87,12 +87,13 @@ def add_receipt(user_id, class_id):
         course_price = my_class.course.price
         receipt = Receipt(user_id=user_id,
                           created_date=datetime.now(),
-                          status=PaymentStatus.CHUA_THANH_TOAN,
-                          total_amount=course_price)
+                          status=PaymentStatus.CHUA_THANH_TOAN)
+
         db.session.add(receipt)
         detail = ReceiptDetail(receipt=receipt,
                                class_id=class_id,
                                price=course_price)
+
         db.session.add(detail)
         db.session.commit()
         return True, "Tạo hóa đơn thành công!"
@@ -106,16 +107,21 @@ def delete_receipt_detail(detail_id):
     try:
         detail = ReceiptDetail.query.get(detail_id)
         if detail:
+            if detail.receipt.status == PaymentStatus.DA_THANH_TOAN:
+                return False, "Không thể hủy! Khóa học này đã đóng học phí."
+
             receipt = detail.receipt
             db.session.delete(detail)
 
             if len(receipt.details) == 0:
                 db.session.delete(receipt)
             db.session.commit()
-            return True
+            return True, "Hủy đăng ký thành công!"
+
+        return False, "Không tìm thấy thông tin đăng ký."
     except Exception as ex:
         print(ex)
-    return False
+        return False, "Lỗi hệ thống: " + str(ex)
 
 def is_user_registered(user_id, class_id):
     return ReceiptDetail.query.join(Receipt).filter(
@@ -210,10 +216,9 @@ def save_attendance(enrollment_id, date_str, is_present):
                                     present=is_present)
             db.session.add(attendance)
         db.session.commit()
-        return True
+        return True, "Lưu thành công"
     except Exception as ex:
-        print(str(ex))
-        return False
+        return False, str(ex)
 
 
 def get_attendance_status(enrollment, date_str):
@@ -235,12 +240,11 @@ def get_unpaid_receipts_by_user_kw(kw):
     return query.all()
 
 
-def pay_receipt(receipt_id, cashier_id):
+def pay_receipt(receipt_id, cashier_id=None):
     receipt = Receipt.query.get(receipt_id)
 
     if not receipt:
-        return False
-
+        return False, "Hóa đơn không tồn tại"
 
     for detail in receipt.details:
         current_count = count_students(detail.class_id)
@@ -252,7 +256,9 @@ def pay_receipt(receipt_id, cashier_id):
     try:
         receipt.status = PaymentStatus.DA_THANH_TOAN
         receipt.created_date = datetime.now()
-        receipt.cashier_id = cashier_id
+
+        if cashier_id:
+            receipt.cashier_id = cashier_id
 
         for detail in receipt.details:
             check = get_enrollment(receipt.user_id, detail.class_id)
@@ -271,7 +277,6 @@ def load_active_classes():
 
 def update_course_price(level_name, category_id, new_price):
     try:
-        from eapp.models import Level
         level_enum = Level[level_name]
 
         query = Course.query.filter(
@@ -286,7 +291,7 @@ def update_course_price(level_name, category_id, new_price):
     except Exception as ex:
         print(f"Lỗi update giá: {ex}")
         db.session.rollback()
-        return False, 0
+        return False, "Lỗi hệ thống: " + str(ex)
 
 def update_class_max_students(class_id, new_max):
     try:
@@ -304,52 +309,51 @@ def update_class_max_students(class_id, new_max):
         db.session.rollback()
     return False, "Lỗi hệ thống!"
 
-def stats_revenue_by_month(year=datetime.now().year, from_date=None, to_date=None):
-    query = db.session.query(func.extract('month', Receipt.created_date),
-                             func.sum(Receipt.total_amount)) \
-        .filter(Receipt.status == PaymentStatus.DA_THANH_TOAN)
+def stats_revenue(year=None):
+    if not year:
+        year = datetime.now().year
 
-    if from_date and to_date:
-        query = query.filter(Receipt.created_date >= from_date,
-                             Receipt.created_date <= to_date)
-    else:
-        query = query.filter(func.extract('year', Receipt.created_date) == year)
-
-    return query.group_by(func.extract('month', Receipt.created_date)) \
+    return db.session.query(func.extract('month', Receipt.created_date),
+                            func.sum(ReceiptDetail.price)) \
+        .join(Receipt, Receipt.id == ReceiptDetail.receipt_id) \
+        .filter(func.extract('year', Receipt.created_date) == year,
+                Receipt.status == PaymentStatus.DA_THANH_TOAN) \
+        .group_by(func.extract('month', Receipt.created_date)) \
         .order_by(func.extract('month', Receipt.created_date)).all()
 
-def stats_courses_enrollment(from_date=None, to_date=None):
-    query = db.session.query(Course.name, func.count(Enrollment.id)) \
-        .join(Class, Class.course_id == Course.id) \
-        .join(Enrollment, Enrollment.class_id == Class.id)
+def stats_student_by_course():
+    return db.session.query(Course.name, func.count(Enrollment.id))\
+                     .join(Class, Class.course_id == Course.id)\
+                     .join(Enrollment, Enrollment.class_id == Class.id)\
+                     .group_by(Course.id, Course.name).all()
 
-    if from_date and to_date:
-        query = query.filter(Enrollment.enrolled_date >= from_date,
-                             Enrollment.enrolled_date <= to_date)
+def stats_pass_fail_by_course():
+    courses = Course.query.all()
+    stats_data = []
 
-    return query.group_by(Course.id, Course.name).all()
+    for course in courses:
+        pass_count = 0
+        fail_count = 0
 
+        for my_class in course.classes:
+            for enrollment in my_class.enrollments:
+                result = calculate_stats(enrollment.id)
+                if result['is_passed']:
+                    pass_count += 1
+                else:
+                    fail_count += 1
 
-def stats_pass_rate_by_course(from_date=None, to_date=None):
-    query = Enrollment.query
-    if from_date and to_date:
-        query = query.filter(Enrollment.enrolled_date >= from_date,
-                             Enrollment.enrolled_date <= to_date)
+        if pass_count > 0 or fail_count > 0:
+            stats_data.append({
+                'course_name': course.name,
+                'pass': pass_count,
+                'fail': fail_count
+            })
 
-    enrollments = query.all()
+    return stats_data
 
-    stats = {}
-    for e in enrollments:
-        course_name = e.my_class.course.name
-        if course_name not in stats:
-            stats[course_name] = {'pass': 0, 'fail': 0}
-
-        result = calculate_stats(e.id)
-        if result['is_passed']:
-            stats[course_name]['pass'] += 1
-        else:
-            stats[course_name]['fail'] += 1
-
-    return stats
-
+def count_courses_by_category():
+    return db.session.query(Category.name, func.count(Course.id))\
+                     .join(Course, Course.category_id == Category.id, isouter=True)\
+                     .group_by(Category.id, Category.name).all()
 

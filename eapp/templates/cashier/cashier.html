@@ -67,7 +67,7 @@
                                 </td>
 
                                 <td class="text-danger fw-bold">
-                                    {{ "{:,.0f}".format(r.total_amount) }} VNĐ
+                                    {{ "{:,.0f}".format(r.details | sum(attribute='price')) }} VNĐ
                                 </td>
 
                                 <td>

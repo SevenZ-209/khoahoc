@@ -4,7 +4,7 @@ from flask import render_template, request, jsonify, redirect, flash
 from flask_login import login_user, logout_user, login_required, current_user
 from eapp import app, dao, login
 from eapp.dao import add_user
-from eapp.models import UserRole, User, Class, ScoreType
+from eapp.models import UserRole, User, Class, ScoreType, Receipt, PaymentStatus
 import math
 from eapp import db
 
@@ -100,10 +100,12 @@ def register_course():
     data = request.form
     class_id = data.get('class_id')
 
-    if dao.add_receipt(user_id=current_user.id, class_id=class_id):
-        flash('Đăng ký thành công! Vui lòng thanh toán.', 'success')
+    success, msg = dao.add_receipt(user_id=current_user.id, class_id=class_id)
+
+    if success:
+        flash(msg, 'success')
     else:
-        flash('Đăng ký thất bại!', 'danger')
+        flash(msg, 'danger')
 
     return redirect('/')
 
@@ -112,13 +114,32 @@ def register_course():
 def my_courses():
     return render_template('student/my_courses.html')
 
+
+@app.route('/api/student-pay/<int:receipt_id>', methods=['POST'])
+@login_required
+def student_pay_process(receipt_id):
+    receipt = Receipt.query.get(receipt_id)
+
+    if not receipt or receipt.user_id != current_user.id:
+        return jsonify({'status': 'failed', 'msg': 'Hóa đơn không hợp lệ hoặc không chính chủ!'})
+
+    result, message = dao.pay_receipt(receipt_id)
+
+    if result:
+        return jsonify({'status': 'success', 'msg': message})
+    else:
+        return jsonify({'status': 'failed', 'msg': message})
+
+
 @app.route('/api/cancel-reg/<int:detail_id>', methods=['DELETE'])
 @login_required
 def cancel_registration_api(detail_id):
-    if dao.delete_receipt_detail(detail_id):
-        return jsonify({'status': 'success'})
+    success, msg = dao.delete_receipt_detail(detail_id)
 
-    return jsonify({'status': 'failed', 'msg': 'Lỗi khi xóa dữ liệu'})
+    if success:
+        return jsonify({'status': 'success', 'msg': msg})
+
+    return jsonify({'status': 'failed', 'msg': msg})
 
 @app.route('/cashier')
 @login_required
@@ -237,15 +258,19 @@ def teacher_attendance(class_id):
                            my_class=my_class,
                            today=today)
 
+
 @app.route('/api/attendance', methods=['POST'])
 @login_required
 def save_attendance_process():
     data = request.json
-    if dao.save_attendance(data.get('enrollment_id'),
-                           data.get('date'),
-                           data.get('present')):
-        return jsonify({'status': 'success'})
-    return jsonify({'status': 'failed'})
+    success, msg = dao.save_attendance(data.get('enrollment_id'),
+                                       data.get('date'),
+                                       data.get('present'))
+
+    if success:
+        return jsonify({'status': 'success', 'msg': msg})
+
+    return jsonify({'status': 'failed', 'msg': msg})
 
 @app.route('/manager', methods=['GET', 'POST'])
 @login_required

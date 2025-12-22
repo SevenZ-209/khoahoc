@@ -35,7 +35,8 @@ function saveAttendance(enrollmentId, date, isPresent) {
         if(data.status === 'success') {
             showSuccessMessage();
         } else {
-            alert('Lỗi lưu dữ liệu!');
+            alert('Lỗi: ' + data.msg);
+            location.reload();
         }
     })
     .catch(err => console.error(err));

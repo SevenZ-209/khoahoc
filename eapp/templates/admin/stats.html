@@ -2,77 +2,121 @@
 
 {% block body %}
 <div class="container-fluid mt-4">
-    <h2 class="text-center text-primary">BÁO CÁO THỐNG KÊ</h2>
+    <h2 class="text-center text-uppercase fw-bold mb-4 text-success">Thống kê & Báo cáo năm {{ year }}</h2>
 
-    <div class="card mb-4 p-3 shadow-sm">
-        <form method="GET" class="row g-3 align-items-center justify-content-center">
-            <div class="col-auto">
-                <label class="fw-bold">Từ ngày:</label>
-                <input type="date" name="from_date" class="form-control" value="{{ request.args.get('from_date', '') }}">
-            </div>
-            <div class="col-auto">
-                <label class="fw-bold">Đến ngày:</label>
-                <input type="date" name="to_date" class="form-control" value="{{ request.args.get('to_date', '') }}">
-            </div>
-            <div class="col-auto">
-                <label>&nbsp;</label><br>
-                <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i> Lọc dữ liệu</button>
-            </div>
-            <div class="col-auto">
-                <label>&nbsp;</label><br>
-                <a href="/admin/statsview" class="btn btn-outline-secondary">Mặc định (Năm nay)</a>
-            </div>
-        </form>
-    </div>
-    
-    <div class="row mt-4">
-        <div class="col-md-6 mb-4">
-            <div class="card shadow h-100">
-                <div class="card-header bg-success text-white">Doanh thu theo tháng (Năm {{ year }})</div>
-                <div class="card-body"><canvas id="revenueChart"></canvas></div>
+    <div class="row mb-5">
+        <div class="col-md-7">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Doanh Thu Theo Tháng</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="revenueChart"></canvas>
+                </div>
             </div>
         </div>
-        <div class="col-md-6 mb-4">
-            <div class="card shadow h-100">
-                <div class="card-header bg-info text-white">Số lượng học viên theo khóa</div>
-                <div class="card-body"><canvas id="courseChart"></canvas></div>
+
+        <div class="col-md-5">
+            <div class="card shadow">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Tỷ Lệ Học Viên Theo Khóa</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="studentChart"></canvas>
+                </div>
             </div>
         </div>
     </div>
 
     <div class="row">
-        <div class="col-md-12 mb-4">
+        <div class="col-12">
             <div class="card shadow">
-                <div class="card-header bg-warning text-dark">Tỷ lệ Đạt / Không Đạt</div>
-                <div class="card-body"><canvas id="passRateChart" height="100"></canvas></div>
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Tỷ lệ Đạt / Không Đạt Theo Khóa Học</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="passFailChart" style="height: 400px;"></canvas>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<script src="{{ url_for('static', filename='js/stats.js') }}"></script>
-
 <script>
-    document.addEventListener("DOMContentLoaded", function() {
-        let rLabels = [], rData = [];
+    function drawChart(ctx, type, labels, datasets) {
+        new Chart(ctx, {
+            type: type,
+            data: {
+                labels: labels,
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    window.onload = function() {
+        let revLabels = [];
+        let revData = [];
         {% for r in revenue_data %}
-            rLabels.push("Tháng {{ r[0] }}");
-            rData.push({{ r[1] }});
+            revLabels.push("Tháng {{ r[0] }}");
+            revData.push({{ r[1] }});
         {% endfor %}
-        let cLabels = [], cData = [];
-        {% for c in course_data %}
-            cLabels.push("{{ c[0] }}");
-            cData.push({{ c[1] }});
+
+        const ctx1 = document.getElementById('revenueChart');
+        drawChart(ctx1, 'bar', revLabels, [{
+            label: 'Doanh thu (VNĐ)',
+            data: revData,
+            backgroundColor: 'rgba(54, 162, 235, 0.7)',
+            borderWidth: 1
+        }]);
+
+        let stuLabels = [];
+        let stuData = [];
+        {% for s in student_data %}
+            stuLabels.push("{{ s[0] }}");
+            stuData.push({{ s[1] }});
         {% endfor %}
-        let pLabels = [], pData = [], fData = [];
-        {% for name, stats in pass_rate_data.items() %}
-            pLabels.push("{{ name }}");
-            pData.push({{ stats['pass'] }});
-            fData.push({{ stats['fail'] }});
+
+        const ctx2 = document.getElementById('studentChart');
+        drawChart(ctx2, 'pie', stuLabels, [{
+            label: 'Số lượng học viên',
+            data: stuData,
+            backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF']
+        }]);
+
+        let pfLabels = [];
+        let passData = [];
+        let failData = [];
+
+        {% for pf in pass_fail_data %}
+            pfLabels.push("{{ pf.course_name }}");
+            passData.push({{ pf.pass }});
+            failData.push({{ pf.fail }});
         {% endfor %}
-        renderCharts(rLabels, rData, cLabels, cData, pLabels, pData, fData);
-    });
+
+        const ctx3 = document.getElementById('passFailChart');
+
+        drawChart(ctx3, 'bar', pfLabels, [
+            {
+                label: 'Đạt',
+                data: passData,
+                backgroundColor: '#198754'
+            },
+            {
+                label: 'Không Đạt',
+                data: failData,
+                backgroundColor: '#dc3545'
+            }
+        ]);
+    }
 </script>
 {% endblock %}

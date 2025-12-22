@@ -12,7 +12,10 @@ class MyAdminIndexView(AdminIndexView):
     def index(self):
         if not current_user.is_authenticated or current_user.user_role != UserRole.ADMIN:
             return redirect('/')
-        return super(MyAdminIndexView, self).index()
+
+        return self.render('admin/index.html', stats = dao.count_courses_by_category())
+
+
 
 class AuthenticatedModelView(ModelView):
     def is_accessible(self):
@@ -44,18 +47,18 @@ class ClassView(AuthenticatedModelView):
 class StatsView(BaseView):
     @expose('/')
     def index(self):
-        from_date = request.args.get('from_date')
-        to_date = request.args.get('to_date')
-        revenue_data = dao.stats_revenue_by_month(from_date=from_date, to_date=to_date)
-        course_data = dao.stats_courses_enrollment(from_date=from_date, to_date=to_date)
-        pass_rate_data = dao.stats_pass_rate_by_course(from_date=from_date, to_date=to_date)
+        year = datetime.now().year
+
+        revenue_data = dao.stats_revenue(year)
+        student_data = dao.stats_student_by_course()
+        pass_fail_data = dao.stats_pass_fail_by_course()
 
         return self.render('admin/stats.html',
                            revenue_data=revenue_data,
-                           course_data=course_data,
-                           pass_rate_data=pass_rate_data,
-                           from_date=from_date,
-                           to_date=to_date)
+                           student_data=student_data,
+                           pass_fail_data=pass_fail_data,
+                           year=year)
+
     def is_accessible(self):
         return current_user.is_authenticated and current_user.user_role == UserRole.ADMIN
 
@@ -78,5 +81,5 @@ admin.add_view(AuthenticatedModelView(Category, db.session, name='Danh mục'))
 admin.add_view(CourseView(Course, db.session, name='Khóa học'))
 admin.add_view(ClassView(Class, db.session, name='Lớp học'))
 admin.add_view(UserView(User, db.session, name='Người dùng'))
-admin.add_view(StatsView(name='Thống kê báo cáo'))
+admin.add_view(StatsView(name='Thống kê & Báo cáo', endpoint='stats'))
 admin.add_view(LogoutView(name='Đăng xuất'))
