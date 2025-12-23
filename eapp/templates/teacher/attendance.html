@@ -27,7 +27,7 @@
             </thead>
             <tbody>
                 {% for s in students %}
-                {% set status = get_attendance(s, today) %}
+                {% set status = get_attendance(s.id, today) %}
                 <tr>
                     <td class="text-center fw-bold text-muted">{{ s.user.id }}</td>
                     <td>{{ s.user.name }}</td>

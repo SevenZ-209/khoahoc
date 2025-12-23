@@ -12,12 +12,13 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = True
 app.config["PAGE_SIZE"] = 8
 
 cloudinary.config(cloud_name='dgpiotsmt',
-api_key='641336261286631',
-api_secret='9IM8MLY8s6Y4Pj6deAJZv6_FhJU')
-
-#res = upload('D:\\khoahoc\\eapp\\image\\unavatar.jpg')
-#response = cloudinary.uploader.upload_image()
-#print(res)
+                    api_key='641336261286631',
+                    api_secret='9IM8MLY8s6Y4Pj6deAJZv6_FhJU')
 
 db = SQLAlchemy(app=app)
 login = LoginManager(app=app)
+login.login_view = 'login_view'
+login.login_message = 'Vui lòng đăng nhập để thực hiện chức năng này!'
+login.login_message_category = 'warning'
+
+from eapp import index

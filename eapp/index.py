@@ -1,10 +1,10 @@
 from datetime import datetime
 from eapp import admin
-from flask import render_template, request, jsonify, redirect, flash
+from flask import render_template, request, jsonify, redirect, flash, abort
 from flask_login import login_user, logout_user, login_required, current_user
 from eapp import app, dao, login
 from eapp.dao import add_user
-from eapp.models import UserRole, User, Class, ScoreType, Receipt, PaymentStatus
+from eapp.models import UserRole, User, Class, ScoreType, Receipt, PaymentStatus, Enrollment
 import math
 from eapp import db
 
@@ -13,15 +13,18 @@ from eapp import db
 def index():
     courses = dao.load_courses(cate_id=request.args.get('category_id'),
                                kw=request.args.get('kw'),
-                               page=int(request.args.get('page',1)))
+                               page=int(request.args.get('page',1, type=int)))
 
+    total_courses = dao.count_courses(kw=request.args.get('kw'), cate_id=request.args.get('category_id'))
 
     return render_template('index.html', courses=courses,
-                           pages=math.ceil(dao.count_courses()/app.config['PAGE_SIZE']))
+                           pages=math.ceil(total_courses/app.config['PAGE_SIZE']))
 
 @app.route('/courses/<int:course_id>')
 def course_detail_process(course_id):
     c = dao.get_course_by_id(course_id)
+    if not c:
+        abort(404)
 
     return render_template('details.html', course=c)
 
@@ -85,7 +88,6 @@ def load_user(id):
 def common_response():
     return {
         'categories': dao.load_categories(),
-        'active_classes': dao.load_active_classes(),
         'count_students': dao.count_students,
         'is_user_registered': dao.is_user_registered,
         'get_score': dao.get_score,
@@ -112,7 +114,8 @@ def register_course():
 @app.route('/my-courses')
 @login_required
 def my_courses():
-    return render_template('student/my_courses.html')
+    data = dao.get_my_registrations(current_user.id)
+    return render_template('student/my_courses.html', registrations=data)
 
 
 @app.route('/api/student-pay/<int:receipt_id>', methods=['POST'])
@@ -134,7 +137,7 @@ def student_pay_process(receipt_id):
 @app.route('/api/cancel-reg/<int:detail_id>', methods=['DELETE'])
 @login_required
 def cancel_registration_api(detail_id):
-    success, msg = dao.delete_receipt_detail(detail_id)
+    success, msg = dao.delete_receipt_detail(detail_id, user_id=current_user.id)
 
     if success:
         return jsonify({'status': 'success', 'msg': msg})
@@ -150,10 +153,9 @@ def cashier_view():
     kw = request.args.get('kw')
     receipts = []
     if kw:
-        receipts = dao.get_unpaid_receipts_by_user_kw(kw)
+        receipts = dao.get_unpaid_receipts_by_user_kw(kw.strip())
 
     return render_template('cashier/cashier.html', receipts=receipts)
-
 
 @app.route('/cashier/create', methods=['GET', 'POST'])
 @login_required
@@ -180,12 +182,13 @@ def cashier_create_receipt():
             else:
                 flash(msg, 'danger')
 
-    return render_template('cashier/create.html')
+    classes = dao.load_active_classes()
+    return render_template('cashier/create.html', active_classes=classes)
 
 @app.route('/api/pay/<int:receipt_id>', methods=['POST'])
 @login_required
 def pay_process(receipt_id):
-    if current_user.user_role != UserRole.Thu_Ngan:
+    if current_user.user_role != UserRole.Thu_Ngan and current_user.user_role != UserRole.ADMIN:
         return jsonify({'status': 'failed', 'msg': 'Không có quyền thực hiện'})
 
     result, message = dao.pay_receipt(receipt_id, cashier_id=current_user.id)
@@ -207,8 +210,20 @@ def teacher_view():
 @app.route('/teacher/class/<int:class_id>')
 @login_required
 def teacher_class_detail(class_id):
-    students = dao.get_students_in_class(class_id)
+    if current_user.user_role != UserRole.Giao_Vien:
+        abort(403)
+
     my_class = db.session.get(Class, class_id)
+
+    if not my_class:
+        abort(404)
+
+
+    if my_class.teacher_id != current_user.id:
+        flash("Bạn không có quyền truy cập lớp học này!", "danger")
+        return redirect('/teacher')
+
+    students = dao.get_students_in_class(class_id)
 
     return render_template('teacher/gradebook.html',
                            students=students,
@@ -220,9 +235,17 @@ def teacher_class_detail(class_id):
 def update_score_process():
     data = request.json
 
+    enrollment_id = data.get('enrollment_id')
     score_type = data.get('score_type')
-    if score_type is None:
-        return jsonify({'status': 'failed', 'msg': 'Lỗi: Không xác định được loại điểm!'})
+    if not enrollment_id:
+        return jsonify({'status': 'failed', 'msg': 'Thiếu dữ liệu đầu vào!'})
+
+    enrollment = Enrollment.query.get(enrollment_id)
+    if not enrollment:
+        return jsonify({'status': 'failed', 'msg': 'Không tìm thấy sinh viên!'})
+
+    if enrollment.my_class.teacher_id != current_user.id:
+        return jsonify({'status': 'failed', 'msg': 'Bạn không có quyền sửa điểm lớp này!'})
 
     try:
         value = float(data.get('value'))
@@ -248,11 +271,21 @@ def update_score_process():
 @app.route('/teacher/class/<int:class_id>/attendance')
 @login_required
 def teacher_attendance(class_id):
-    students = dao.get_students_in_class(class_id)
+    if current_user.user_role != UserRole.Giao_Vien:
+        abort(403)
+
     my_class = db.session.get(Class, class_id)
+
+    if not my_class:
+        abort(404)
+
+    if my_class.teacher_id != current_user.id:
+        flash('Bạn không có quyền truy cập điểm danh lớp này!', 'danger')
+        return redirect('/teacher')
 
     today = request.args.get('date', datetime.now().strftime('%Y-%m-%d'))
 
+    students = dao.get_students_in_class(class_id)
     return render_template('teacher/attendance.html',
                            students=students,
                            my_class=my_class,
@@ -263,9 +296,22 @@ def teacher_attendance(class_id):
 @login_required
 def save_attendance_process():
     data = request.json
-    success, msg = dao.save_attendance(data.get('enrollment_id'),
-                                       data.get('date'),
-                                       data.get('present'))
+
+    enrollment_id = data.get('enrollment_id')
+    date_str = data.get('date')
+    present = data.get('present')
+
+    if not enrollment_id or not date_str:
+        return jsonify({'status': 'failed', 'msg': 'Thiếu dữ liệu!'})
+
+    enrollment = db.session.get(Enrollment, enrollment_id)
+    if not enrollment:
+        return jsonify({'status': 'failed', 'msg': 'Không tìm thấy sinh viên!'})
+
+    if enrollment.my_class.teacher_id != current_user.id:
+        return jsonify({'status': 'failed', 'msg': 'Bạn không có quyền điểm danh lớp này!'})
+
+    success, msg = dao.save_attendance(enrollment_id, date_str, present)
 
     if success:
         return jsonify({'status': 'success', 'msg': msg})
@@ -308,8 +354,5 @@ def manager_view():
         return redirect('/manager')
 
     return render_template('manager/manager.html')
-
-if __name__ == '__main__':
-    app.run(debug=True)
 
 

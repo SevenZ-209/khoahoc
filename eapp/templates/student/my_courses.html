@@ -4,7 +4,7 @@
 <div class="container mt-4">
     <h2 class="text-primary text-center mb-4">KHÓA HỌC CỦA TÔI</h2>
 
-    {% if not current_user.receipts %}
+    {% if not registrations %}
         <div class="alert alert-warning text-center">
             Bạn chưa đăng ký khóa học nào. <a href="/">Đăng ký ngay!</a>
         </div>
@@ -22,45 +22,43 @@
                 </tr>
             </thead>
             <tbody>
-                {% for r in current_user.receipts %}
+                {% for d in registrations %}
+                <tr>
+                    <td>
+                        <div class="fw-bold text-primary">{{ d.my_class.name }}</div>
+                        <small class="text-muted">Lịch học: {{ d.my_class.schedule }}</small>
+                    </td>
 
-                    {% for d in r.details %}
-                    <tr>
-                        <td>
-                            <div class="fw-bold text-primary">{{ d.my_class.name }}</div>
-                            <small class="text-muted">{{ d.my_class.schedule }}</small>
-                        </td>
-                        <td>{{ r.created_date.strftime('%d/%m/%Y') }}</td>
-                        <td>{{ "{:,.0f}".format(d.price) }} VNĐ</td>
+                    <td>{{ d.receipt.created_date.strftime('%d/%m/%Y') }}</td>
 
-                        <td>
-                            {% if r.status.name == 'DA_THANH_TOAN' %}
-                                <span class="badge bg-success">Đã đóng tiền</span>
-                            {% else %}
-                                <span class="badge bg-warning text-dark">Chờ thanh toán</span>
-                            {% endif %}
-                        </td>
+                    <td>{{ "{:,.0f}".format(d.price) }} VNĐ</td>
 
-                        <td>
-                            {% if r.status.name == 'CHUA_THANH_TOAN' %}
-                                <button class="btn btn-success btn-sm"
-                                        onclick="payOnline({{ r.id }})">
-                                    <i class="fas fa-credit-card"></i> Thanh toán ngay
-                                </button>
+                    <td>
+                        {% if d.receipt.status.name == 'DA_THANH_TOAN' %}
+                            <span class="badge bg-success">Đã đóng tiền</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">Chờ thanh toán</span>
+                        {% endif %}
+                    </td>
 
-                                <button class="btn btn-danger btn-sm"
-                                        onclick="deleteRegistration({{ d.id }})">
-                                    <i class="fas fa-times-circle"></i> Hủy
-                                </button>
-                            {% else %}
-                                <button class="btn btn-secondary btn-sm" disabled>
-                                    <i class="fas fa-check"></i> Chính thức
-                                </button>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
+                    <td>
+                        {% if d.receipt.status.name == 'CHUA_THANH_TOAN' %}
+                            <button class="btn btn-success btn-sm mb-1"
+                                    onclick="payOnline({{ d.receipt.id }})">
+                                <i class="fas fa-credit-card"></i> Thanh toán
+                            </button>
 
+                            <button class="btn btn-danger btn-sm mb-1"
+                                    onclick="deleteRegistration({{ d.receipt.id }})">
+                                <i class="fas fa-times-circle"></i> Hủy
+                            </button>
+                        {% else %}
+                            <button class="btn btn-secondary btn-sm" disabled>
+                                <i class="fas fa-check"></i> Đã ghi danh
+                            </button>
+                        {% endif %}
+                    </td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>

@@ -2,6 +2,7 @@ import hashlib
 from datetime import datetime
 from sqlalchemy import func
 import cloudinary.uploader
+from sqlalchemy.orm import joinedload
 
 from eapp.models import Category, Course, User, db, Receipt, PaymentStatus, ReceiptDetail, Class, Enrollment, Score, \
     ScoreType, Attendance, Result, Level
@@ -24,8 +25,14 @@ def load_courses(cate_id=None, kw=None, page=1):
 
     return query.all()
 
-def count_courses():
-    return Course.query.count()
+
+def count_courses(kw=None, cate_id=None):
+    query = Course.query
+    if kw:
+        query = query.filter(Course.name.contains(kw))
+    if cate_id:
+        query = query.filter(Course.category_id == cate_id)
+    return query.count()
 
 def get_course_by_id(course_id):
     return Course.query.get(course_id)
@@ -34,7 +41,7 @@ def get_user_by_id(id):
     return User.query.get(id)
 
 def count_students(class_id):
-    return Enrollment.query.filter(Enrollment.class_id == class_id).count()
+    return Enrollment.query.filter_by(class_id=class_id).count()
 
 def get_user_by_username(username):
     return User.query.filter_by(username=username.strip()).first()
@@ -71,6 +78,12 @@ def add_user(name, username, password, avatar, email):
     db.session.add(u)
     db.session.commit()
 
+def is_user_registered(user_id, class_id):
+    return ReceiptDetail.query.join(Receipt).filter(
+        Receipt.user_id == user_id,
+        ReceiptDetail.class_id == class_id
+    ).first() is not None
+
 def add_receipt(user_id, class_id):
     my_class = Class.query.get(class_id)
     if not my_class:
@@ -99,44 +112,57 @@ def add_receipt(user_id, class_id):
         return True, "Tạo hóa đơn thành công!"
 
     except Exception as ex:
-        print(f"Lỗi tạo hóa đơn: {ex}")
         db.session.rollback()
         return False, "Lỗi hệ thống: " + str(ex)
 
-def delete_receipt_detail(detail_id):
+def get_my_registrations(user_id):
+
+    return (db.session.query(ReceiptDetail)
+            .join(Receipt)
+            .filter(Receipt.user_id == user_id)
+            .options(
+                joinedload(ReceiptDetail.receipt),
+                joinedload(ReceiptDetail.my_class)
+            )
+            .order_by(Receipt.created_date.desc())
+            .all())
+
+
+def delete_receipt_detail(detail_id, user_id):
+    detail = ReceiptDetail.query.get(detail_id)
+
+    if not detail or detail.receipt.user_id != user_id:
+        return False, "Không tìm thấy đăng ký hoặc bạn không có quyền xóa!"
+
+    if detail.receipt.status == PaymentStatus.DA_THANH_TOAN:
+        return False, "Không thể hủy môn học đã đóng tiền!"
+
     try:
-        detail = ReceiptDetail.query.get(detail_id)
-        if detail:
-            if detail.receipt.status == PaymentStatus.DA_THANH_TOAN:
-                return False, "Không thể hủy! Khóa học này đã đóng học phí."
+        receipt = detail.receipt
+        db.session.delete(detail)
 
-            receipt = detail.receipt
-            db.session.delete(detail)
 
-            if len(receipt.details) == 0:
-                db.session.delete(receipt)
-            db.session.commit()
-            return True, "Hủy đăng ký thành công!"
+        if len(receipt.details) == 1:
+            db.session.delete(receipt)
 
-        return False, "Không tìm thấy thông tin đăng ký."
+        db.session.commit()
+        return True, "Hủy đăng ký thành công!"
     except Exception as ex:
-        print(ex)
-        return False, "Lỗi hệ thống: " + str(ex)
-
-def is_user_registered(user_id, class_id):
-    return ReceiptDetail.query.join(Receipt).filter(
-        Receipt.user_id == user_id,
-        ReceiptDetail.class_id == class_id
-    ).first() is not None
+        db.session.rollback()
+        return False, str(ex)
 
 def get_enrollment(user_id, class_id):
     return Enrollment.query.filter_by(user_id=user_id, class_id=class_id).first()
 
 def get_classes_by_teacher(teacher_id):
-    return Class.query.filter(Class.teacher_id == teacher_id).all()
+    return (Class.query
+            .options(joinedload(Class.course))
+            .filter(Class.teacher_id == teacher_id)
+            .order_by(Class.start_date.desc())
+            .all())
 
 def get_students_in_class(class_id):
-    return Enrollment.query.filter(Enrollment.class_id == class_id).all()
+    return Enrollment.query.filter_by(class_id=class_id).all()
 
 def add_or_update_score(enrollment_id, score_type_value, value):
     score_enum = ScoreType(int(score_type_value))
@@ -165,7 +191,7 @@ def get_score(enrollment, score_type_enum):
     return ''
 
 def get_scores_by_enrollment(enrollment_id):
-    return Score.query.filter(Score.enrollment_id == enrollment_id).all()
+    return Score.query.filter(Score.enrollment_id == enrollment_id).order_by(Score.score_type).all()
 
 def calculate_stats(enrollment_id):
     scores = get_scores_by_enrollment(enrollment_id)
@@ -200,14 +226,10 @@ def save_attendance(enrollment_id, date_str, is_present):
     try:
         attend_date = datetime.strptime(date_str, '%Y-%m-%d').date()
 
-        enrollment = Enrollment.query.get(enrollment_id)
-        attendance = None
-
-        for a in enrollment.attendances:
-            if a.date.date() == attend_date:
-                attendance = a
-                break
-
+        attendance = Attendance.query.filter(
+            Attendance.enrollment_id == enrollment_id,
+            Attendance.date == attend_date
+        ).first()
         if attendance:
             attendance.present = is_present
         else:
@@ -217,19 +239,28 @@ def save_attendance(enrollment_id, date_str, is_present):
             db.session.add(attendance)
         db.session.commit()
         return True, "Lưu thành công"
+
     except Exception as ex:
+        db.session.rollback()
         return False, str(ex)
 
 
-def get_attendance_status(enrollment, date_str):
+def get_attendance_status(enrollment_id, date_str):
     try:
+
         target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-        for a in enrollment.attendances:
-            if a.date.date() == target_date:
-                return a.present
-    except:
-        pass
-    return None
+
+        att = Attendance.query.with_entities(Attendance.present).filter(
+            Attendance.enrollment_id == enrollment_id,
+            func.date(Attendance.date) == target_date
+        ).first()
+
+        if att:
+            return att.present
+        return None
+
+    except Exception:
+        return None
 
 def get_unpaid_receipts_by_user_kw(kw):
     query = Receipt.query.join(Receipt.user).filter(Receipt.status == PaymentStatus.CHUA_THANH_TOAN)
@@ -255,7 +286,7 @@ def pay_receipt(receipt_id, cashier_id=None):
 
     try:
         receipt.status = PaymentStatus.DA_THANH_TOAN
-        receipt.created_date = datetime.now()
+        receipt.payment_date = datetime.now()
 
         if cashier_id:
             receipt.cashier_id = cashier_id
@@ -270,10 +301,11 @@ def pay_receipt(receipt_id, cashier_id=None):
         return True, "Thanh toán thành công!"
 
     except Exception as ex:
+        db.session.rollback()
         return False, str(ex)
 
 def load_active_classes():
-    return Class.query.filter(Class.active == True).order_by(Class.id.desc()).all()
+    return Class.query.options(joinedload(Class.course)).filter(Class.active == True).order_by(Class.id.desc()).all()
 
 def update_course_price(level_name, category_id, new_price):
     try:
