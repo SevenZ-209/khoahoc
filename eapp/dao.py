@@ -128,11 +128,15 @@ def get_my_registrations(user_id):
             .all())
 
 
-def delete_receipt_detail(detail_id, user_id):
+def delete_receipt_detail(detail_id, user_id, check_owner=None):
     detail = ReceiptDetail.query.get(detail_id)
 
-    if not detail or detail.receipt.user_id != user_id:
-        return False, "Không tìm thấy đăng ký hoặc bạn không có quyền xóa!"
+    if not detail:
+        return False, "Không tìm thấy đăng ký!"
+
+    if check_owner and user_id:
+        if detail.receipt.user_id != user_id:
+            return False, "Bạn không có quyền xóa đăng ký của người khác!"
 
     if detail.receipt.status == PaymentStatus.DA_THANH_TOAN:
         return False, "Không thể hủy môn học đã đóng tiền!"
@@ -142,7 +146,7 @@ def delete_receipt_detail(detail_id, user_id):
         db.session.delete(detail)
 
 
-        if len(receipt.details) == 1:
+        if len(receipt.details) == 0:
             db.session.delete(receipt)
 
         db.session.commit()
@@ -321,7 +325,6 @@ def update_course_price(level_name, category_id, new_price):
 
         return True, row_count
     except Exception as ex:
-        print(f"Lỗi update giá: {ex}")
         db.session.rollback()
         return False, "Lỗi hệ thống: " + str(ex)
 
@@ -337,7 +340,6 @@ def update_class_max_students(class_id, new_max):
             return True, f"Đã cập nhật sĩ số lớp {my_class.name} thành {new_max}."
 
     except Exception as ex:
-        print(ex)
         db.session.rollback()
     return False, "Lỗi hệ thống!"
 

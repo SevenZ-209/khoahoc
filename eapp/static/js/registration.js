@@ -1,4 +1,3 @@
-
 function deleteRegistration(detailId) {
     if (confirm("Bạn có chắc chắn muốn hủy đăng ký lớp học này không?")) {
         fetch(`/api/cancel-reg/${detailId}`, {
@@ -22,6 +21,7 @@ function deleteRegistration(detailId) {
         });
     }
 }
+
 
 function payOnline(receiptId) {
     if (confirm('Bạn có chắc muốn thanh toán học phí cho hóa đơn này?')) {

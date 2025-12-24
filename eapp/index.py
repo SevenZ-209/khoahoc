@@ -4,7 +4,7 @@ from flask import render_template, request, jsonify, redirect, flash, abort
 from flask_login import login_user, logout_user, login_required, current_user
 from eapp import app, dao, login
 from eapp.dao import add_user
-from eapp.models import UserRole, User, Class, ScoreType, Receipt, PaymentStatus, Enrollment
+from eapp.models import UserRole, User, Class, ScoreType, Receipt, PaymentStatus, Enrollment, ReceiptDetail
 import math
 from eapp import db
 
@@ -137,12 +137,17 @@ def student_pay_process(receipt_id):
 @app.route('/api/cancel-reg/<int:detail_id>', methods=['DELETE'])
 @login_required
 def cancel_registration_api(detail_id):
-    success, msg = dao.delete_receipt_detail(detail_id, user_id=current_user.id)
 
-    if success:
+    is_staff = (current_user.user_role == UserRole.Thu_Ngan) or (current_user.user_role == UserRole.ADMIN)
+    should_check_owner = not is_staff
+
+    result, msg = dao.delete_receipt_detail(detail_id, user_id=current_user.id, check_owner=should_check_owner)
+
+    if result:
         return jsonify({'status': 'success', 'msg': msg})
+    else:
 
-    return jsonify({'status': 'failed', 'msg': msg})
+        return jsonify({'status': 'failed', 'msg': msg})
 
 @app.route('/cashier')
 @login_required
@@ -321,6 +326,7 @@ def save_attendance_process():
 @app.route('/manager', methods=['GET', 'POST'])
 @login_required
 def manager_view():
+
     if current_user.user_role != UserRole.Quan_Ly and current_user.user_role != UserRole.ADMIN:
         return redirect('/')
 
@@ -332,27 +338,34 @@ def manager_view():
             category_id = request.form.get('category_id')
             price = request.form.get('price')
             try:
-                success, count = dao.update_course_price(level, category_id, float(price))
+
+                success, msg = dao.update_course_price(level, category_id, float(price))
                 if success:
-                    flash(f'Đã cập nhật giá cho {count} khóa học!', 'success')
+                    flash(f'Đã cập nhật giá thành công cho {msg} khóa học!', 'success')
                 else:
-                    flash('Lỗi cập nhật!', 'danger')
-            except:
-                flash('Dữ liệu không hợp lệ', 'danger')
+                    flash(f'Lỗi: {msg}', 'danger')
+            except Exception as ex:
+                flash(f'Dữ liệu không hợp lệ: {str(ex)}', 'danger')
+
         elif action == 'update_size':
             class_id = request.form.get('class_id')
             size = request.form.get('max_students')
             try:
+
                 success, message = dao.update_class_max_students(class_id, int(size))
                 if success:
                     flash(message, 'success')
                 else:
                     flash(message, 'danger')
             except ValueError:
-                flash('Vui lòng nhập số nguyên!', 'danger')
+                flash('Vui lòng nhập sĩ số là số nguyên!', 'danger')
 
         return redirect('/manager')
 
-    return render_template('manager/manager.html')
+    categories = dao.load_categories()
+    active_classes = dao.load_active_classes()
 
+    return render_template('manager/manager.html',
+                           categories=categories,
+                           active_classes=active_classes)
 
