@@ -347,13 +347,13 @@ def stats_revenue(year=None):
     if not year:
         year = datetime.now().year
 
-    return db.session.query(func.extract('month', Receipt.created_date),
+    return db.session.query(func.extract('month', Receipt.payment_date),
                             func.sum(ReceiptDetail.price)) \
         .join(Receipt, Receipt.id == ReceiptDetail.receipt_id) \
-        .filter(func.extract('year', Receipt.created_date) == year,
+        .filter(func.extract('year', Receipt.payment_date) == year,
                 Receipt.status == PaymentStatus.DA_THANH_TOAN) \
-        .group_by(func.extract('month', Receipt.created_date)) \
-        .order_by(func.extract('month', Receipt.created_date)).all()
+        .group_by(func.extract('month', Receipt.payment_date)) \
+        .order_by(func.extract('month', Receipt.payment_date)).all()
 
 def stats_student_by_course():
     return db.session.query(Course.name, func.count(Enrollment.id))\

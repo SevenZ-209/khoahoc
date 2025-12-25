@@ -25,7 +25,6 @@ class ScoreType(enum.Enum):
     GIUA_KY = 1
     CUOI_KY = 2
     CHUYEN_CAN = 3
-    # KIEM_TRA_MIENG = 4
 
 class Result(enum.Enum):
     DAT = 1
